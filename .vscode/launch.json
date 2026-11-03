@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "EventsLab API",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/ticketing-system/backend/bin/Debug/net8.0/EventsLab.Api.dll",
+      "cwd": "${workspaceFolder}/ticketing-system/backend",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5088"
+      }
+    }
+  ]
+}

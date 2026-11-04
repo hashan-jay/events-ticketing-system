@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<TransactionFieldValue> TransactionFieldValues => Set<TransactionFieldValue>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +102,19 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => x.Key).IsUnique();
             entity.Property(x => x.Key).HasMaxLength(80).IsRequired();
             entity.Property(x => x.Value).HasMaxLength(400).IsRequired();
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.ToTable("AuditLogs");
+            entity.Property(x => x.Username).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.Action).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.EntityType).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.EntityId).HasMaxLength(40);
+            entity.Property(x => x.Summary).HasMaxLength(400).IsRequired();
+            entity.Property(x => x.Details).HasMaxLength(2000);
+            entity.HasIndex(x => x.OccurredAt);
+            entity.HasIndex(x => x.Action);
         });
     }
 }

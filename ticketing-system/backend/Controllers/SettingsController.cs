@@ -1,6 +1,7 @@
 using EventsLab.Api.Data;
 using EventsLab.Api.DTOs;
 using EventsLab.Api.Models;
+using EventsLab.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace EventsLab.Api.Controllers;
 public class SettingsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly AuditService _audit;
 
-    public SettingsController(AppDbContext db)
+    public SettingsController(AppDbContext db, AuditService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -28,9 +31,16 @@ public class SettingsController : ControllerBase
     [HttpPut]
     public async Task<ActionResult<SettingsDto>> Update([FromBody] UpdateSettingsRequest request)
     {
-        await UpsertAsync("EventName", request.EventName.Trim());
-        await UpsertAsync("Currency", request.Currency.Trim().ToUpperInvariant());
+        var eventName = request.EventName.Trim();
+        var currency = request.Currency.Trim().ToUpperInvariant();
+        await UpsertAsync("EventName", eventName);
+        await UpsertAsync("Currency", currency);
         await UpsertAsync("FreeEntryEnabled", request.FreeEntryEnabled ? "true" : "false");
+        _audit.Stage(
+            AuditActions.SettingsUpdated,
+            "settings",
+            null,
+            $"Updated settings. Event '{eventName}', currency {currency}, free entry {(request.FreeEntryEnabled ? "on" : "off")}.");
         await _db.SaveChangesAsync();
         return Ok(await ReadSettingsAsync());
     }

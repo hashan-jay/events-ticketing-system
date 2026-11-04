@@ -6,7 +6,8 @@ import {
   Receipt,
   Settings,
   LogOut,
-  Zap
+  Zap,
+  ClipboardList
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -15,6 +16,7 @@ const links = [
   { to: "/issue", label: "Issue Ticket", icon: Zap },
   { to: "/tickets", label: "Ticket Management", icon: Ticket },
   { to: "/audit", label: "Ticket Lookup", icon: ScanLine },
+  { to: "/audit-log", label: "Audit log", icon: ClipboardList },
   { to: "/transactions", label: "Transactions", icon: Receipt },
   { to: "/settings", label: "Settings", icon: Settings }
 ];
@@ -38,14 +40,14 @@ export default function Layout() {
             </div>
           </div>
         </div>
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3">
           {links.map((link) => {
             const Icon = link.icon;
             return (
               <NavLink
                 key={link.to}
                 to={link.to}
-                end={link.to === "/"}
+                end={link.to === "/" || link.to === "/audit"}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
                     isActive
@@ -65,8 +67,8 @@ export default function Layout() {
           <p className="mb-3 text-xs text-slate-400">{user?.role} · {user?.username}</p>
           <button
             className="btn-ghost w-full"
-            onClick={() => {
-              logout();
+            onClick={async () => {
+              await logout();
               navigate("/login");
             }}
           >

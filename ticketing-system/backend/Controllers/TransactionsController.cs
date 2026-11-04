@@ -15,10 +15,12 @@ namespace EventsLab.Api.Controllers;
 public class TransactionsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly AuditService _audit;
 
-    public TransactionsController(AppDbContext db)
+    public TransactionsController(AppDbContext db, AuditService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -176,6 +178,12 @@ public class TransactionsController : ControllerBase
         }
 
         _db.Transactions.Add(transaction);
+        _audit.Stage(
+            AuditActions.TicketIssued,
+            "ticket",
+            ticket.TicketNumber,
+            $"Issued {ticket.TicketNumber} in {category.Name} to {(string.IsNullOrWhiteSpace(customerName) ? "a guest" : customerName)}. Collected {transaction.AmountCollected:0.##} via {method.Name}.",
+            string.IsNullOrWhiteSpace(customerPhone) ? request.Notes : $"Phone {customerPhone}. {request.Notes}".Trim());
         await _db.SaveChangesAsync();
         await dbTx.CommitAsync();
 

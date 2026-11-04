@@ -14,11 +14,13 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly JwtTokenService _tokens;
+    private readonly AuditService _audit;
 
-    public AuthController(AppDbContext db, JwtTokenService tokens)
+    public AuthController(AppDbContext db, JwtTokenService tokens, AuditService audit)
     {
         _db = db;
         _tokens = tokens;
+        _audit = audit;
     }
 
     [HttpPost("login")]
@@ -30,8 +32,22 @@ public class AuthController : ControllerBase
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
         if (user is null || !user.IsActive || !PasswordHasher.Verify(password, user.PasswordHash))
         {
+            await _audit.WriteAsync(
+                AuditActions.LoginFailed,
+                "user",
+                user?.Id.ToString(),
+                $"Failed sign-in attempt for '{username}'.",
+                username: username);
             return Unauthorized(new { message = "Invalid username or password." });
         }
+
+        await _audit.WriteAsync(
+            AuditActions.LoginSucceeded,
+            "user",
+            user.Id.ToString(),
+            $"{user.FullName} signed in.",
+            userId: user.Id,
+            username: user.Username);
 
         return Ok(new AuthResponse
         {
@@ -57,5 +73,13 @@ public class AuthController : ControllerBase
         }
 
         return Ok(DtoMapper.ToUser(user));
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout()
+    {
+        await _audit.WriteAsync(AuditActions.Logout, "user", null, "Signed out.");
+        return NoContent();
     }
 }

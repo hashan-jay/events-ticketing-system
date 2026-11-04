@@ -14,10 +14,12 @@ namespace EventsLab.Api.Controllers;
 public class PaymentMethodsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly AuditService _audit;
 
-    public PaymentMethodsController(AppDbContext db)
+    public PaymentMethodsController(AppDbContext db, AuditService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -53,6 +55,12 @@ public class PaymentMethodsController : ControllerBase
         };
 
         _db.PaymentMethods.Add(method);
+        _audit.Stage(
+            AuditActions.PaymentMethodCreated,
+            "payment_method",
+            null,
+            $"Created payment method '{method.Name}' ({method.Code}).",
+            method.CollectsRevenue ? "Collects revenue." : "Does not collect revenue.");
         await _db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetAll), DtoMapper.ToPaymentMethod(method));
     }
@@ -80,6 +88,12 @@ public class PaymentMethodsController : ControllerBase
         method.Color = request.Color;
         method.DisplayOrder = request.DisplayOrder;
 
+        _audit.Stage(
+            AuditActions.PaymentMethodUpdated,
+            "payment_method",
+            method.Id.ToString(),
+            $"Updated payment method '{method.Name}' ({method.Code}).",
+            method.CollectsRevenue ? "Collects revenue." : "Does not collect revenue.");
         await _db.SaveChangesAsync();
         return Ok(DtoMapper.ToPaymentMethod(method));
     }

@@ -14,10 +14,12 @@ namespace EventsLab.Api.Controllers;
 public class TicketsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly AuditService _audit;
 
-    public TicketsController(AppDbContext db)
+    public TicketsController(AppDbContext db, AuditService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -109,8 +111,19 @@ public class TicketsController : ControllerBase
 
         if (ticket is null)
         {
+            await _audit.WriteAsync(
+                AuditActions.TicketLookedUp,
+                "ticket",
+                ticketNumber,
+                $"Looked up ticket {ticketNumber}, which does not exist.");
             return NotFound(new { message = "Ticket not found." });
         }
+
+        await _audit.WriteAsync(
+            AuditActions.TicketLookedUp,
+            "ticket",
+            ticket.TicketNumber,
+            $"Looked up ticket {ticket.TicketNumber} ({ticket.Status}).");
 
         return Ok(new TicketAuditDto
         {

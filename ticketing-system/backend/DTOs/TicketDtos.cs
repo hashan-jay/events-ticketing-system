@@ -44,6 +44,12 @@ public class UpsertTicketCategoryRequest
     [Range(0, long.MaxValue)]
     public long EndNumber { get; set; }
 
+    [Range(0, 10000)]
+    public int TicketCount { get; set; }
+
+    [Range(0, 10000)]
+    public int AdditionalTickets { get; set; }
+
     [MaxLength(20)]
     public string Color { get; set; } = "#6366f1";
 

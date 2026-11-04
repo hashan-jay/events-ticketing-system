@@ -45,7 +45,12 @@ export function AuthProvider({ children }) {
         setUser(data.user);
         return data.user;
       },
-      logout() {
+      async logout() {
+        try {
+          await api.post("/api/auth/logout");
+        } catch {
+          // Still clear the local session if the API cannot record the sign-out.
+        }
         localStorage.removeItem("el_token");
         localStorage.removeItem("el_user");
         setUser(null);

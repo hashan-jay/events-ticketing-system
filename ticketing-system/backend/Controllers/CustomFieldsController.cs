@@ -14,10 +14,12 @@ namespace EventsLab.Api.Controllers;
 public class CustomFieldsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly AuditService _audit;
 
-    public CustomFieldsController(AppDbContext db)
+    public CustomFieldsController(AppDbContext db, AuditService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -52,6 +54,12 @@ public class CustomFieldsController : ControllerBase
         };
 
         _db.CustomFields.Add(field);
+        _audit.Stage(
+            AuditActions.CustomFieldCreated,
+            "custom_field",
+            null,
+            $"Created customer field '{field.Label}' ({field.FieldKey}).",
+            field.IsRequired ? "Required." : "Optional.");
         await _db.SaveChangesAsync();
         return Ok(DtoMapper.ToCustomField(field));
     }
@@ -78,6 +86,12 @@ public class CustomFieldsController : ControllerBase
         field.IsActive = request.IsActive;
         field.DisplayOrder = request.DisplayOrder;
 
+        _audit.Stage(
+            AuditActions.CustomFieldUpdated,
+            "custom_field",
+            field.Id.ToString(),
+            $"Updated customer field '{field.Label}' ({field.FieldKey}).",
+            field.IsRequired ? "Required." : "Optional.");
         await _db.SaveChangesAsync();
         return Ok(DtoMapper.ToCustomField(field));
     }

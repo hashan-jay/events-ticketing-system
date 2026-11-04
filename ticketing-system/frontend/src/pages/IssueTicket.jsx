@@ -82,9 +82,11 @@ export default function IssueTicket() {
       const { data } = await api.post("/api/transactions", payload);
       setMessage(`Issued ${data.ticketNumber} to ${data.customerName || "guest"} via ${data.paymentMethodName}.`);
       setForm((prev) => ({ ...prev, notes: "", values: {}, ticketId: "" }));
-      const refresh = await api.get("/api/tickets", {
-        params: { categoryId: form.ticketCategoryId, status: 0, take: 80 }
-      });
+      const [refreshCats, refresh] = await Promise.all([
+        api.get("/api/ticket-categories"),
+        api.get("/api/tickets", { params: { categoryId: form.ticketCategoryId, status: 0, take: 80 } })
+      ]);
+      setCategories(refreshCats.data.filter((c) => c.isActive));
       setAvailable(refresh.data);
       setForm((prev) => ({ ...prev, ticketId: refresh.data[0]?.id ? String(refresh.data[0].id) : "" }));
     } catch (err) {

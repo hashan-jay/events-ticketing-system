@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import IssueTicket from "./pages/IssueTicket";
 import Tickets from "./pages/Tickets";
 import Audit from "./pages/Audit";
+import AuditLog from "./pages/AuditLog";
 import Transactions from "./pages/Transactions";
 import Settings from "./pages/Settings";
 
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/issue" element={<IssueTicket />} />
         <Route path="/tickets" element={<Tickets />} />
         <Route path="/audit" element={<Audit />} />
+        <Route path="/audit-log" element={<AuditLog />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

@@ -10,16 +10,22 @@ const empty = {
   isFreeEntry: false,
   numberPrefix: "",
   startNumber: 1,
-  endNumber: 100,
+  ticketCount: 100,
+  additionalTickets: 0,
   color: "#22d3ee",
   isActive: true
 };
+
+function formatTicket(prefix, sequence, endForPad) {
+  const pad = Math.max(4, String(endForPad).length);
+  return `${prefix || ""}${String(sequence).padStart(pad, "0")}`;
+}
 
 export default function Tickets() {
   const [categories, setCategories] = useState([]);
   const [settings, setSettings] = useState({ currency: "LKR" });
   const [form, setForm] = useState(empty);
-  const [editingId, setEditingId] = useState(null);
+  const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,7 +41,7 @@ export default function Tickets() {
   }, []);
 
   function startEdit(category) {
-    setEditingId(category.id);
+    setEditing(category);
     setForm({
       name: category.name,
       description: category.description,
@@ -44,10 +50,19 @@ export default function Tickets() {
       isFreeEntry: category.isFreeEntry,
       numberPrefix: category.numberPrefix,
       startNumber: category.startNumber,
-      endNumber: category.endNumber,
+      ticketCount: category.totalTickets,
+      additionalTickets: 0,
       color: category.color,
       isActive: category.isActive
     });
+    setError("");
+    setMessage("");
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setForm(empty);
+    setError("");
   }
 
   async function save(e) {
@@ -55,17 +70,36 @@ export default function Tickets() {
     setBusy(true);
     setError("");
     setMessage("");
+    const additional = Number(form.additionalTickets || 0);
+    const ticketCount = Number(form.ticketCount);
     try {
-      const payload = { ...form, price: Number(form.price), startNumber: Number(form.startNumber), endNumber: Number(form.endNumber) };
-      if (editingId) {
-        await api.put(`/api/ticket-categories/${editingId}`, payload);
-        setMessage("Category updated.");
+      const payload = {
+        name: form.name,
+        description: form.description,
+        price: Number(form.price),
+        isVip: form.isVip,
+        isFreeEntry: form.isFreeEntry,
+        numberPrefix: form.numberPrefix,
+        startNumber: Number(form.startNumber),
+        endNumber: Number(form.startNumber),
+        ticketCount: editing ? 0 : ticketCount,
+        additionalTickets: editing ? additional : 0,
+        color: form.color,
+        isActive: form.isActive
+      };
+      const { data } = editing
+        ? await api.put(`/api/ticket-categories/${editing.id}`, payload)
+        : await api.post("/api/ticket-categories", payload);
+
+      if (editing && additional > 0) {
+        setMessage(`Added ${additional} tickets. ${data.remainingTickets} are available now.`);
+      } else if (editing) {
+        setMessage("Section updated.");
       } else {
-        await api.post("/api/ticket-categories", payload);
-        setMessage("Category created. Generate unique numbers next.");
+        setMessage(`Section created with ${data.remainingTickets} tickets available.`);
       }
       setForm(empty);
-      setEditingId(null);
+      setEditing(null);
       await load();
     } catch (err) {
       setError(apiError(err, "Could not save category."));
@@ -86,22 +120,74 @@ export default function Tickets() {
     }
   }
 
+  const count = Number(form.ticketCount) || 0;
+  const start = Number(form.startNumber) || 1;
+  const createEnd = count > 0 ? start + count - 1 : start;
+  const extra = Number(form.additionalTickets) || 0;
+  const editEnd = editing ? Number(editing.endNumber) + extra : 0;
+
   return (
     <div>
       <h1 className="page-title">Ticket management</h1>
-      <p className="page-sub">Create price / VIP sections and assign unique start–end ticket numbers.</p>
+      <p className="page-sub">Create a section and set how many tickets are available. Add more later and the stock updates everywhere.</p>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-5">
         <form onSubmit={save} className="glass rounded-3xl p-6 xl:col-span-2">
-          <h2 className="text-lg font-bold">{editingId ? "Edit section" : "New section"}</h2>
+          <h2 className="text-lg font-bold">{editing ? "Edit section" : "New section"}</h2>
           <input className="field mt-4" placeholder="Section name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <textarea className="field mt-3 min-h-20" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="mt-3 grid grid-cols-2 gap-3">
             <input className="field" type="number" min="0" placeholder="Price" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
             <input className="field" placeholder="Prefix e.g. GEN-" value={form.numberPrefix} onChange={(e) => setForm({ ...form, numberPrefix: e.target.value })} />
-            <input className="field" type="number" placeholder="Start number" required value={form.startNumber} onChange={(e) => setForm({ ...form, startNumber: e.target.value })} />
-            <input className="field" type="number" placeholder="End number" required value={form.endNumber} onChange={(e) => setForm({ ...form, endNumber: e.target.value })} />
           </div>
+
+          {!editing && (
+            <>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Start number
+                  <input className="field mt-2" type="number" min="1" required value={form.startNumber} onChange={(e) => setForm({ ...form, startNumber: e.target.value })} />
+                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  How many tickets available
+                  <input className="field mt-2" type="number" min="1" max="10000" required value={form.ticketCount} onChange={(e) => setForm({ ...form, ticketCount: e.target.value })} />
+                </label>
+              </div>
+              {count > 0 && (
+                <p className="mt-3 text-xs text-cyan-200">
+                  This creates {count} available tickets, numbered {formatTicket(form.numberPrefix, start, createEnd)} through {formatTicket(form.numberPrefix, createEnd, createEnd)}.
+                </p>
+              )}
+            </>
+          )}
+
+          {editing && (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-ink-950/50 p-4">
+              <p className="text-sm text-slate-300">
+                <span className="text-2xl font-extrabold text-white">{editing.remainingTickets}</span> available now
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                {editing.soldTickets} issued · {editing.totalTickets} in this section · {formatTicket(editing.numberPrefix, editing.startNumber, editing.endNumber)} to {formatTicket(editing.numberPrefix, editing.endNumber, editing.endNumber)}
+              </p>
+              <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Add more tickets
+                <input
+                  className="field mt-2"
+                  type="number"
+                  min="0"
+                  max="10000"
+                  value={form.additionalTickets}
+                  onChange={(e) => setForm({ ...form, additionalTickets: e.target.value })}
+                />
+              </label>
+              {extra > 0 && (
+                <p className="mt-2 text-xs text-cyan-200">
+                  Adds {extra} tickets, {formatTicket(form.numberPrefix, Number(editing.endNumber) + 1, editEnd)} through {formatTicket(form.numberPrefix, editEnd, editEnd)}. Available becomes {editing.remainingTickets + extra}.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="mt-3 flex items-center gap-3">
             <input type="color" className="h-11 w-14 rounded-lg border border-white/10 bg-transparent" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
             <label className="flex items-center gap-2 text-sm">
@@ -120,9 +206,11 @@ export default function Tickets() {
           {error && <p className="mt-4 text-sm text-rose-300">{error}</p>}
           {message && <p className="mt-4 text-sm text-emerald-300">{message}</p>}
           <div className="mt-5 flex gap-3">
-            <button className="btn-primary flex-1" disabled={busy}>{busy ? "Saving..." : editingId ? "Update section" : "Create section"}</button>
-            {editingId && (
-              <button type="button" className="btn-ghost" onClick={() => { setEditingId(null); setForm(empty); }}>
+            <button className="btn-primary flex-1" disabled={busy || (!editing && count < 1)}>
+              {busy ? "Saving..." : editing ? "Update section" : "Create section"}
+            </button>
+            {editing && (
+              <button type="button" className="btn-ghost" onClick={cancelEdit}>
                 Cancel
               </button>
             )}
@@ -138,14 +226,14 @@ export default function Tickets() {
                   <h3 className="text-xl font-bold">{category.name}</h3>
                   <p className="text-sm text-slate-400">{category.description}</p>
                   <p className="mt-2 text-sm">
-                    {category.numberPrefix}{category.startNumber} to {category.numberPrefix}{category.endNumber}
+                    {formatTicket(category.numberPrefix, category.startNumber, category.endNumber)} to {formatTicket(category.numberPrefix, category.endNumber, category.endNumber)}
                     {" · "}
                     {category.isVip || category.isFreeEntry ? "VIP / free" : money(category.price, settings.currency)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-extrabold">{category.soldTickets}/{category.totalTickets}</p>
-                  <p className="text-sm text-slate-400">{category.remainingTickets} remaining</p>
+                  <p className="text-2xl font-extrabold">{category.remainingTickets}</p>
+                  <p className="text-sm text-slate-400">{category.soldTickets} issued of {category.totalTickets}</p>
                 </div>
               </div>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
@@ -158,8 +246,8 @@ export default function Tickets() {
                 />
               </div>
               <div className="mt-4 flex gap-3">
-                <button className="btn-ghost" onClick={() => startEdit(category)}>Edit range</button>
-                <button className="btn-primary" onClick={() => generate(category.id)}>Generate unique numbers</button>
+                <button className="btn-ghost" onClick={() => startEdit(category)}>Edit section</button>
+                <button className="btn-primary" onClick={() => generate(category.id)}>Fill missing numbers</button>
               </div>
             </article>
           ))}
